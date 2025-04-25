@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import Image from "next/image";
@@ -22,6 +23,7 @@ interface RazorpayOptions {
 
 interface Razorpay {
     new(options: RazorpayOptions): {
+        on(arg0: string, arg1: (response: { error: { description: string; }; }) => void): unknown;
         open: () => void;
     };
 }
@@ -46,13 +48,37 @@ export default function ProductCard() {
                     description: 'damn ahh portfolio',
                     image: 'https://pbs.twimg.com/profile_images/1898061647660429312/j3NKy9AP_400x400.jpg',
                     order_id: order.id,
-                    callback_url: `https://fardeen.tech`,
+                    handler: async function (response: any) {
+                        const data = {
+                            orderCreationId: order.id,
+                            razorpayPaymentId: response.razorpay_payment_id,
+                            razorpayOrderId: response.razorpay_order_id,
+                            razorpaySignature: response.razorpay_signature,
+                        };
+
+                        const result = await fetch('/api/paymentVarification', {
+                            method: 'POST',
+                            body: JSON.stringify(data),
+                            headers: { 'Content-Type': 'application/json' },
+                        });
+                        const res = await result.json();
+                        if (res.isOk) alert("payment succeed");
+                        else {
+                            alert(res.message);
+                        }
+                    },
                     theme: {
                         "color": "#121212"
                     }
                 };
+                const razor = new window.Razorpay({
+                    ...options,
+                    callback_url: window.location.href
+                });
 
-                const razor = new window.Razorpay(options)
+                razor.on('payment.failed', function (response: { error: { description: string } }) {
+                    alert(response.error.description);
+                });
                 razor.open();
             }
         } catch (error) {
